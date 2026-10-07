@@ -27,6 +27,7 @@ CHAT_NUM_GPU: int | None = int(_chat_num_gpu) if _chat_num_gpu.strip() else None
 DIRECT_THRESHOLD = float(os.getenv("DIRECT_THRESHOLD", "0.82"))  # üstü: SSS cevabı aynen döner
 RAG_THRESHOLD = float(os.getenv("RAG_THRESHOLD", "0.60"))  # üstü: LLM, SSS'lerle cevap üretir
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "2"))
+CONTEXT_CHARS = int(os.getenv("CONTEXT_CHARS", "800"))  # LLM'e verilen her kaynağın azami uzunluğu
 
 # Boşsa admin uçları korumasız (sadece yerel MVP için)
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
