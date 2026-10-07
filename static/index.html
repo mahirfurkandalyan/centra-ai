@@ -38,12 +38,15 @@ function addMessage(cls, text = "") {
   return el;
 }
 
-function renderMeta(container, meta, latencyMs) {
+const sec = (ms) => `${(ms / 1000).toFixed(1)} sn`;
+
+function renderMeta(container, meta, done) {
   if (!debug.checked) return;
   const box = document.createElement("div");
   box.className = "meta";
-  const secs = latencyMs != null ? ` · ${(latencyMs / 1000).toFixed(1)} sn` : "";
-  box.textContent = `${MODE_LABELS[meta.mode] || meta.mode} · benzerlik ${meta.score}${secs}`;
+  let timing = ` · toplam ${sec(done.latency_ms)} (arama ${sec(done.search_ms)}`;
+  if (done.first_token_ms != null) timing += `, ilk kelime ${sec(done.first_token_ms)}`;
+  box.textContent = `${MODE_LABELS[meta.mode] || meta.mode} · benzerlik ${meta.score}${timing})`;
   for (const s of meta.sources) {
     const li = document.createElement("div");
     li.className = "source";
@@ -84,7 +87,7 @@ async function ask(question) {
           if (!started) { bot.textContent = ""; bot.classList.remove("pending"); started = true; }
           bot.textContent += ev.text;
           messages.scrollTop = messages.scrollHeight;
-        } else if (ev.type === "done") renderMeta(bot, meta, ev.latency_ms);
+        } else if (ev.type === "done") renderMeta(bot, meta, ev);
         else if (ev.type === "error") throw new Error(ev.message);
       }
     }

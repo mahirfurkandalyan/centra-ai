@@ -40,6 +40,8 @@ def answer_stream(question: str) -> Iterator[dict]:
     question = question.strip()
 
     hits = store.search(ollama_client.embed([question])[0], config.RAG_TOP_K)
+    search_ms = int((time.perf_counter() - started) * 1000)
+    first_token_ms = None
     best_faq, best_score = hits[0] if hits else (None, 0.0)
 
     if best_faq and best_score >= config.DIRECT_THRESHOLD:
@@ -72,6 +74,8 @@ def answer_stream(question: str) -> Iterator[dict]:
             {"role": "user", "content": f"BİLGİ:\n{_build_context(hits)}\n\nKULLANICI SORUSU: {question}"},
         ]
         for text in ollama_client.chat_stream(messages):
+            if first_token_ms is None:
+                first_token_ms = int((time.perf_counter() - started) * 1000)
             parts.append(text)
             yield {"type": "token", "text": text}
 
@@ -80,4 +84,4 @@ def answer_stream(question: str) -> Iterator[dict]:
         question, "".join(parts), mode, best_score if best_faq else None,
         best_faq["id"] if best_faq else None, latency_ms,
     )
-    yield {"type": "done", "latency_ms": latency_ms}
+    yield {"type": "done", "latency_ms": latency_ms, "search_ms": search_ms, "first_token_ms": first_token_ms}
