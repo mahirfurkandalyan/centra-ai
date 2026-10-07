@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centra Admin</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="admin">
+  <h1>Centra Asistan · Yönetim</h1>
+
+  <section class="card">
+    <div class="row">
+      <label>Admin anahtarı <input type="password" id="token" placeholder="(ayarlanmadıysa boş)"></label>
+      <button id="refresh">Yenile</button>
+      <a href="/" target="_blank">Sohbet sayfası ↗</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Durum</h2>
+    <div class="stats" id="stats"></div>
+    <p class="muted" id="indexer"></p>
+  </section>
+
+  <section class="card">
+    <h2>SSS yükle (.md)</h2>
+    <form id="upload" class="row">
+      <input type="file" id="file" accept=".md,.txt" required>
+      <button type="submit">Yükle</button>
+    </form>
+    <pre class="result" id="uploadResult"></pre>
+  </section>
+
+  <section class="card">
+    <h2>SSS kayıtları</h2>
+    <div class="row">
+      <input id="q" placeholder="Soru veya cevapta ara">
+      <select id="module"><option value="">Tüm modüller</option></select>
+      <span class="muted" id="faqCount"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Modül</th><th>Soru / Cevap</th><th>İndeks</th><th></th></tr></thead>
+        <tbody id="faqs"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Son konuşmalar</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Zaman</th><th>Soru / Cevap</th><th>Mod</th><th>Benzerlik</th><th>Süre</th></tr></thead>
+        <tbody id="logs"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+try { $("token").value = localStorage.getItem("centraAdminToken") || ""; } catch {}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), "X-Admin-Token": $("token").value } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail || body));
+  return body;
+}
+
+function cell(tr, content) {
+  const td = document.createElement("td");
+  if (content instanceof Node) td.appendChild(content); else td.textContent = content ?? "";
+  tr.appendChild(td);
+  return td;
+}
+
+function qa(question, answer) {
+  const d = document.createElement("details");
+  const s = document.createElement("summary");
+  s.textContent = question;
+  const p = document.createElement("p");
+  p.textContent = answer;
+  d.append(s, p);
+  return d;
+}
+
+async function loadStats() {
+  const s = await api("/api/admin/stats");
+  const h = s.health;
+  const items = [
+    [s.faq_total, "SSS kaydı"],
+    [s.faq_pending_index, "İndeks bekleyen"],
+    [s.chat_modes.direct || 0, "Doğrudan cevap"],
+    [s.chat_modes.rag || 0, "Model ile cevap"],
+    [s.chat_modes.fallback || 0, "Bilgi yok"],
+  ];
+  $("stats").innerHTML = "";
+  for (const [v, label] of items) {
+    const div = document.createElement("div");
+    div.className = "stat";
+    div.innerHTML = `<b></b><span></span>`;
+    div.querySelector("b").textContent = v;
+    div.querySelector("span").textContent = label;
+    $("stats").appendChild(div);
+  }
+  const mark = (ok) => (ok ? "✓" : "✗");
+  $("indexer").textContent =
+    `Ollama ${mark(h.ollama)} · sohbet modeli ${mark(h.chat_model)} · embedding modeli ${mark(h.embed_model)}` +
+    ` · indeksleme: ${s.indexer.running ? "çalışıyor…" : "boşta"}` +
+    (s.indexer.error ? ` · HATA: ${s.indexer.error}` : "");
+
+  const sel = $("module"), current = sel.value;
+  sel.length = 1;
+  for (const m of s.modules) sel.add(new Option(`${m.module} (${m.n})`, m.module));
+  sel.value = current;
+  return s;
+}
+
+async function loadFaqs() {
+  const params = new URLSearchParams({ q: $("q").value, module: $("module").value, limit: 100 });
+  const data = await api(`/api/admin/faqs?${params}`);
+  $("faqCount").textContent = `${data.total} kayıt${data.total > 100 ? " (ilk 100 gösteriliyor)" : ""}`;
+  const tbody = $("faqs");
+  tbody.innerHTML = "";
+  for (const f of data.items) {
+    const tr = document.createElement("tr");
+    cell(tr, f.module);
+    cell(tr, qa(f.question, f.answer));
+    cell(tr, f.indexed ? "✓" : "bekliyor");
+    const del = document.createElement("button");
+    del.className = "secondary";
+    del.textContent = "Sil";
+    del.onclick = async () => {
+      if (!confirm("Bu SSS kaydı silinsin mi?")) return;
+      await api(`/api/admin/faqs/${f.id}`, { method: "DELETE" });
+      refresh();
+    };
+    cell(tr, del);
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadLogs() {
+  const logs = await api("/api/admin/logs?limit=50");
+  const tbody = $("logs");
+  tbody.innerHTML = "";
+  for (const l of logs) {
+    const tr = document.createElement("tr");
+    cell(tr, l.created_at.replace("T", " "));
+    cell(tr, qa(l.question, l.answer));
+    cell(tr, l.mode);
+    cell(tr, l.score != null ? l.score.toFixed(3) : "-");
+    cell(tr, `${(l.latency_ms / 1000).toFixed(1)} sn`);
+    tbody.appendChild(tr);
+  }
+}
+
+let pollTimer = null;
+async function refresh() {
+  try { localStorage.setItem("centraAdminToken", $("token").value); } catch {}
+  try {
+    const s = await loadStats();
+    await Promise.all([loadFaqs(), loadLogs()]);
+    clearTimeout(pollTimer);
+    if (s.indexer.running || s.faq_pending_index > 0) pollTimer = setTimeout(refresh, 4000);
+  } catch (err) {
+    $("indexer").textContent = `Hata: ${err.message}`;
+  }
+}
+
+$("upload").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData();
+  fd.append("file", $("file").files[0]);
+  $("uploadResult").textContent = "Yükleniyor…";
+  try {
+    const r = await api("/api/admin/upload", { method: "POST", body: fd });
+    $("uploadResult").textContent =
+      `${r.parsed} soru okundu: ${r.added} yeni, ${r.updated} güncellendi, ${r.unchanged} değişmedi.` +
+      (r.errors.length ? `\nUyarılar:\n- ${r.errors.join("\n- ")}` : "");
+    refresh();
+  } catch (err) {
+    $("uploadResult").textContent = `Hata: ${err.message}`;
+  }
+});
+
+let searchTimer;
+$("q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadFaqs, 300); });
+$("module").addEventListener("change", loadFaqs);
+$("refresh").addEventListener("click", refresh);
+refresh();
+</script>
+</body>
+</html>

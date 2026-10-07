@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centra Asistan</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="chat">
+  <header class="chat-head">
+    <strong>Centra Asistan</strong>
+    <label class="debug-toggle"><input type="checkbox" id="debug" checked> Kaynakları göster</label>
+  </header>
+  <main id="messages" class="messages">
+    <div class="msg bot">Merhaba! Centra çözümleri hakkında sorularınızı yanıtlayabilirim.</div>
+  </main>
+  <form id="form" class="composer">
+    <textarea id="input" rows="1" placeholder="Sorunuzu yazın..." required></textarea>
+    <button type="submit" id="send" aria-label="Gönder">Gönder</button>
+  </form>
+</div>
+
+<script>
+const MODE_LABELS = { direct: "SSS'den aynen", rag: "SSS + model", fallback: "Bilgi yok" };
+const messages = document.getElementById("messages");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
+const debug = document.getElementById("debug");
+
+function addMessage(cls, text = "") {
+  const el = document.createElement("div");
+  el.className = `msg ${cls}`;
+  el.textContent = text;
+  messages.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+  return el;
+}
+
+function renderMeta(container, meta, latencyMs) {
+  if (!debug.checked) return;
+  const box = document.createElement("div");
+  box.className = "meta";
+  const secs = latencyMs != null ? ` · ${(latencyMs / 1000).toFixed(1)} sn` : "";
+  box.textContent = `${MODE_LABELS[meta.mode] || meta.mode} · benzerlik ${meta.score}${secs}`;
+  for (const s of meta.sources) {
+    const li = document.createElement("div");
+    li.className = "source";
+    li.textContent = `[${s.module}] ${s.question} (${s.score})`;
+    box.appendChild(li);
+  }
+  container.after(box);
+}
+
+async function ask(question) {
+  addMessage("user", question);
+  // "Hazırlanıyor..." metni QA hattının test scriptiyle uyumlu: script bunu cevap saymaz
+  const bot = addMessage("bot pending", "Hazırlanıyor...");
+  let meta = null, started = false;
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question }),
+    });
+    if (!res.ok) throw new Error(`Sunucu hatası (${res.status})`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop();
+      for (const chunk of chunks) {
+        if (!chunk.startsWith("data: ")) continue;
+        const ev = JSON.parse(chunk.slice(6));
+        if (ev.type === "meta") meta = ev;
+        else if (ev.type === "token") {
+          if (!started) { bot.textContent = ""; bot.classList.remove("pending"); started = true; }
+          bot.textContent += ev.text;
+          messages.scrollTop = messages.scrollHeight;
+        } else if (ev.type === "done") renderMeta(bot, meta, ev.latency_ms);
+        else if (ev.type === "error") throw new Error(ev.message);
+      }
+    }
+  } catch (err) {
+    bot.classList.remove("pending");
+    bot.classList.add("error");
+    bot.textContent = `Bir hata oluştu: ${err.message}`;
+  }
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = "";
+  send.disabled = true;
+  await ask(q);
+  send.disabled = false;
+  input.focus();
+});
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+});
+</script>
+</body>
+</html>
