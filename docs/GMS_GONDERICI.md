@@ -1,8 +1,12 @@
 # GMS gönderici — uygulama talimatı
 
 Geliştirme oturumlarının ilerlemesini GMS'teki "centra-ai" ekranına gönderen parça. Sözleşme GMS
-oturumuyla kesinleştirildi (2026-10-07). GMS tarafındaki uçlar ve ekran ayrıca yapılıyor; uçlar
-yayına alınana kadar gönderici `--dry-run` ile test edilir.
+oturumuyla kesinleştirildi (2026-10-07). **GMS tarafı yayında ve doğrulandı:** üç yazma ucu çalışıyor,
+"centra-ai" bildirici kaydı kullanıcının ürettiği gizin hash'iyle açıldı, ekran GMS navbar'ında.
+
+GMS'in doğruladığı davranışlar: aynı gövde tekrar → 200 `created:false`; tur özeti farklı değerle
+tekrar → 409; eski `sequence` → 200 `accepted:false` (yazmaz); bilinmeyen `phase` → 400; 5. turda
+`baseline` → 400; `answered > target` → 400; yanlış giz → 401.
 
 **Bu talimatı mevcut bir geliştirme oturumunun ortasında uygulama.** Oturum bitince ayrı bir iş olarak yap.
 
@@ -48,6 +52,10 @@ Ortam değişkenleri (makine düzeyi, kullanıcı ayarladı; değerleri asla yaz
   (süreç yeniden başlasa da geri gitmesin).
 - `progressUpdatedAt`: gönderim anı DEĞİL, sayaçların en son değiştiği an.
 - Bilinmeyen sayaç `null` (sıfır değil). Soru/cevap metni gönderme.
+- `counters` alanı gövdede yoksa GMS saklanan sayaçları **korur** (sıfırlamaz); "bu gövdede yok" ile
+  "sıfırlandı" farklı şeylerdir.
+- `progressUpdatedAt`'i gönderim anı yaparsan donmuş bir ölçüm ekranda canlı görünür ve "ilerleme
+  durdu" uyarısı hiç çıkmaz.
 
 ### 2. Tur özeti — `POST /api/centra-ai/runs/{runId}/rounds`
 8 KB, 10/dk, **tur başına bir kez** (puanlama bittikten ve tut/geri al kararından sonra).
@@ -90,6 +98,8 @@ Ortam değişkenleri (makine düzeyi, kullanıcı ayarladı; değerleri asla yaz
 }
 ```
 - `stopReason`: `plateau` | `roundLimit` | `quota` | `error` | `manual`
+- Oturum açılır açılmaz gönderilebilir; telemetri gelmeden de GMS koşu satırını açar, kullanıcının
+  isteği kaybolmaz.
 
 ## Önerilen yapı
 
