@@ -40,6 +40,20 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1
 - Sohbet: http://localhost:8000
 - Admin: http://localhost:8000/admin
 
+## QA hattındaki tüm soru-cevapları içe aktarma
+
+QA hattı deposundan (yalnızca okuyarak) tüm golden cevapları ve gap dosyalarını aktarır:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.importer "C:\Projects\centra-chatbot" --dry-run   # önce sadece say
+.\.venv\Scripts\python.exe -m app.importer "C:\Projects\centra-chatbot"             # aktar + indeksle
+```
+
+- Aynı soru hem golden'da hem gap'te varsa **gap cevabı** (düzeltilmiş cevap) kalır.
+- "Bağlam Takibi" kategorisindeki sorular alınmaz (önceki mesajlara atıf yapıyorlar).
+- Tekrar çalıştırmak güvenlidir; sadece yeni veya değişen kayıtlar işlenir. İndeksleme yarıda kesilirse kaldığı yerden devam eder.
+- Sunucu açıkken de çalıştırılabilir; sunucu yeni kayıtları otomatik görür.
+
 ## Güncelleme
 
 ```powershell

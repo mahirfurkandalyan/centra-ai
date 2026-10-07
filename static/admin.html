@@ -42,7 +42,7 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Modül</th><th>Soru / Cevap</th><th>İndeks</th><th></th></tr></thead>
+        <thead><tr><th>Modül</th><th>Soru / Cevap</th><th>Kaynak</th><th>İndeks</th><th></th></tr></thead>
         <tbody id="faqs"></tbody>
       </table>
     </div>
@@ -92,6 +92,8 @@ async function loadStats() {
   const h = s.health;
   const items = [
     [s.faq_total, "SSS kaydı"],
+    [s.sources.gap || 0, "Gap (düzeltilmiş)"],
+    [s.sources.golden || 0, "Golden"],
     [s.faq_pending_index, "İndeks bekleyen"],
     [s.chat_modes.direct || 0, "Doğrudan cevap"],
     [s.chat_modes.rag || 0, "Model ile cevap"],
@@ -129,6 +131,7 @@ async function loadFaqs() {
     const tr = document.createElement("tr");
     cell(tr, f.module);
     cell(tr, qa(f.question, f.answer));
+    cell(tr, f.source_type);
     cell(tr, f.indexed ? "✓" : "bekliyor");
     const del = document.createElement("button");
     del.className = "secondary";
