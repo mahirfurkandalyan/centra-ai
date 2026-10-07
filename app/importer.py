@@ -35,11 +35,22 @@ def _pack_sort_key(path: Path) -> int:
     return int(m.group(1)) if m else 0
 
 
+def _golden_files(root: Path) -> list[Path]:
+    """Birleşik dosyası (expected-answers-pack-N.json) olan pakette parça dosyalarını (-p01...) atlar.
+    Birleşik dosyası olmayan paketlerde (ör. Pack 6: 6a, 6b) tüm parçalar alınır."""
+    files = []
+    for answers_dir in root.glob("Questions and Answers/Pack */Answers"):
+        pack_no = _PACK_NO.search(answers_dir.parent.name)
+        merged = answers_dir / f"expected-answers-pack-{pack_no.group(1)}.json" if pack_no else None
+        files += [merged] if merged and merged.exists() else sorted(answers_dir.glob("expected-answers-pack-*.json"))
+    return sorted(files, key=_pack_sort_key)
+
+
 def load_golden(root: Path) -> tuple[list[tuple[str, list[FaqEntry]]], dict]:
     """Her paket için (dosya adı, kayıtlar) listesi döner."""
     report = {"files": 0, "records": 0, "skipped_context": 0, "skipped_empty": 0}
     result = []
-    for ans_path in sorted(root.glob("Questions and Answers/Pack */Answers/expected-answers-pack-*.json"), key=_pack_sort_key):
+    for ans_path in _golden_files(root):
         answers = _load_json_list(ans_path)
         # Golden dosyasında soru/kategori yoksa soru dosyasından tamamlanır
         q_path = ans_path.parent.parent / "Questions" / ans_path.name.replace("expected-answers", "questions")
@@ -63,11 +74,16 @@ def load_golden(root: Path) -> tuple[list[tuple[str, list[FaqEntry]]], dict]:
     return result, report
 
 
-def load_gaps(root: Path) -> tuple[list[tuple[str, list[FaqEntry]]], dict]:
+def load_gaps(root: Path, extra_dirs: list[Path]) -> tuple[list[tuple[str, list[FaqEntry]]], dict]:
     report = {"files": 0, "records": 0, "errors": 0}
     result = []
-    for md_path in sorted((root / "mds").glob("CENTRA_Knowledge_Base_Gaps*.md")):
+    paths = sorted((root / "mds").glob("CENTRA_Knowledge_Base_Gaps*.md"))
+    for d in extra_dirs:
+        paths += sorted(d.rglob("*.md"))
+    for md_path in paths:
         entries, errors = parse_faq_markdown(md_path.read_text(encoding="utf-8-sig"))
+        if errors:
+            print(f"  uyarı: {md_path.name}: {len(entries)} kayıt okundu, {len(errors)} blok okunamadı ({errors[0]})")
         report["files"] += 1
         report["records"] += len(entries)
         report["errors"] += len(errors)
@@ -93,14 +109,19 @@ def main() -> None:
     ap.add_argument("root", type=Path, help="QA hattı deposu, ör. C:\\Projects\\centra-chatbot")
     ap.add_argument("--dry-run", action="store_true", help="Sadece say, veritabanına yazma")
     ap.add_argument("--no-index", action="store_true", help="İndekslemeyi sunucuya bırak")
+    ap.add_argument("--extra", type=Path, action="append", default=[],
+                    help="Ek gap .md klasörü (alt klasörler dahil); birden fazla verilebilir")
     args = ap.parse_args()
     sys.stdout.reconfigure(errors="replace")  # eski Windows konsollarında Türkçe karakter hatası olmasın
 
     if not (args.root / "Questions and Answers").is_dir():
         sys.exit(f"'{args.root}' içinde 'Questions and Answers' klasörü bulunamadı")
+    for d in args.extra:
+        if not d.is_dir():
+            sys.exit(f"Ek klasör bulunamadı: {d}")
 
     golden, g_report = load_golden(args.root)
-    gaps, m_report = load_gaps(args.root)
+    gaps, m_report = load_gaps(args.root, args.extra)
     print(f"Golden: {g_report['files']} dosya, {g_report['records']} kayıt "
           f"(bağlam sorusu atlandı: {g_report['skipped_context']}, boş: {g_report['skipped_empty']})")
     print(f"Gap:    {m_report['files']} dosya, {m_report['records']} kayıt (ayrıştırma uyarısı: {m_report['errors']})")
