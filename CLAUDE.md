@@ -35,7 +35,7 @@ kullanıcıdan beklenen karar (ör. "beğendiysen kalıcı hâle getireyim mi?")
 Başladığı andan bitene kadar **kullanıcıya hiç soru sorma, onay bekleme**; kullanıcı bakmayacak.
 Belirsizlikte makul kararı kendin ver ve rapora yaz. Akış:
 
-1. Çalışma branch'i: `gelistirme` (yoksa `main`'den aç, varsa üzerinde devam et).
+1. `main` üzerinde çalış. Başlamadan önce geri dönüş noktası koy: `git tag oncesi-<YYYYMMDD-HHMM>` ve push et.
 2. Sohbet sunucusu açıksa ölçümü bozar; `run.ps1` süreci varsa durdur, bitince yeniden başlat.
 3. `data/eval/eval_set.json` yoksa `python -m scripts.make_eval_set`. Seti asla yeniden üretme
    (turlar karşılaştırılamaz hâle gelir).
@@ -47,7 +47,7 @@ Belirsizlikte makul kararı kendin ver ve rapora yaz. Akış:
    - Aksi halde → **geri al** (`git checkout -- .`), denemeyi rapora "işe yaramadı" diye yaz.
    - Bir turda sadece bir şeyi değiştir; yoksa neyin işe yaradığı anlaşılmaz.
 6. **Durma:** art arda 3 tur "tutulmadı" ise, ya da 12 tur dolduysa, ya da kota uyarısı geldiyse dur.
-7. `RAPOR.md`'nin **en üstüne** yeni giriş ekle (şablon aşağıda), commit et, `gelistirme`'yi push et.
+7. `RAPOR.md`'nin **en üstüne** yeni giriş ekle (şablon aşağıda), commit et, push et.
 8. Sohbet sunucusunu yeniden başlat (kullanıcı yeni hâli deneyebilsin).
 9. Kullanıcıya **bildirim gönder** (PushNotification aracı varsa onunla, yoksa son mesajla):
    "Geliştirme bitti: ort. puan X → Y. Rapor hazır."
@@ -63,7 +63,13 @@ kurulu; `qwen3:1.7b`, `llama3.2:3b`, `phi4-mini` gibi ≤4B modeller `ollama pul
 
 ### Onay
 
-`gelistirme`'yi `main`'e merge et, push et, sunucuyu yeniden başlat, tek cümleyle bildir.
+Ek bir şey gerekmez (değişiklikler zaten `main`'de); tek cümleyle teşekkür et.
+
+### Geri alma
+
+Kullanıcı son geliştirmeyi beğenmediğini, eski hâlin daha iyi olduğunu söylerse: en son `oncesi-*` etiketine
+`git revert` ile dön (geçmişi silme, `reset --hard` + force push yapma), push et, sunucuyu yeniden
+başlat, RAPOR.md'ye not düş.
 
 ### RAPOR.md giriş şablonu
 
@@ -75,7 +81,7 @@ kurulu; `qwen3:1.7b`, `llama3.2:3b`, `phi4-mini` gibi ≤4B modeller `ollama pul
 **Denenip geri alınanlar:** madde madde, neden işe yaramadı
 **Neden durdum:** tavana ulaşıldı / tur sınırı / kota
 **Açık sorunlar ve öneriler:** ...
-**Senden beklenen:** ör. "Beğendiysen 'tamam' de, main'e alayım."
+**Senden beklenen:** ör. "Beğenmediğin bir şey varsa yaz, yoksa böyle kalsın."
 ```
 
 ## Mimari (detay: README.md)
@@ -109,9 +115,10 @@ i7-8550U (4 çekirdek), **8 GB RAM**, MX150 (2 GB). Ölçülenler:
 1. `C:\Projects\centra-chatbot` klasörüne **asla yazma** (dosya, git, npm, hiçbir şey). Çalışma ağacı
    kirlenirse Cumartesi QA hattı başlamaz. Sadece okuyabilirsin.
 2. Windows Görev Zamanlayıcı görevlerine (`CentraChatbotQA-*`) dokunma, QA hattını çalıştırma.
-3. Cumartesi 17:00-23:59 arası ağır iş (değerlendirme, indeksleme) başlatma; QA hattı CPU'yu ve
-   aynı Claude hesabını kullanıyor. Bu saatte "geliştir" gelirse kullanıcıya bunu söyle ve bekle.
-4. `main`'e kullanıcı onay vermeden merge/push etme.
+3. Bu bilgisayar ve Claude hesabı QA hattıyla ortak. Cumartesi 17:00-23:59 arası ağır iş
+   (değerlendirme, indeksleme) başlatma; bu saatte geliştirme istenirse kullanıcıya söyle ve bekle.
+   Kota uyarısı alırsan hemen dur ve raporla: Cumartesi koşusu için kota kalmalı.
+4. Git geçmişini silme/yeniden yazma (force push, reset --hard yok); her geliştirme öncesi `oncesi-*` etiketi koy.
 5. `data/` git'e girmez (şirket verisi, veritabanı). Silme; veritabanında yapısal değişiklikten önce
    `data/centra.db`'nin yedeğini al.
 6. Gizli bilgi (token, şifre, API anahtarı) yazma, loglama.
