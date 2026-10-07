@@ -45,6 +45,16 @@ tarafından durduruldu (8 GB RAM'in 7.6 GB'ı doluydu; `llama-server` tek başı
 5. `direct` modunun tek gerçek hatası konu kayması: soru 12 (0.84 benzerlik) müşteri şikayeti
    sorulurken denetçi cevabı döndürdü (15 puan).
 
+**Ölçüm setinin göremediği, canlıda önemli bir bulgu (Türkçe karakter):**
+Kullanıcı soruyu **Türkçe karakterler olmadan** yazdığında aynı sorunun benzerliği çöküyor:
+"Pastörizasyon sıcaklık ve süre kayıtları otomatik toplanabilir mi?" → 1.000 (anında, kayıtlı cevap),
+aynı soru "Pastorizasyon sicaklik ve sure kayitlari..." → **0.777** (model modu, 72 sn, üstelik
+uydurma riski). Yani "ö/ü/ı/ş/ç/ğ" yazmayan bir müşteri, elimizde hazır ve doğru cevap olduğu hâlde
+yavaş ve riskli yolu alıyor. Değerlendirme seti bunu hiç yakalamıyor çünkü sorular kusursuz yazılmış.
+Önerilen ucuz çözüm: `store.question_key` zaten büyük/küçük harf ve noktalama farkını yok sayıyor;
+aynı anahtara Türkçe karakter katlaması (ö→o, ş→s, ı→i ...) eklenip, soru bu anahtarla birebir
+eşleşiyorsa doğrudan kayıtlı cevabın verilmesi. Yeniden indeksleme gerekmez, maliyeti sıfıra yakın.
+
 **Açık sorunlar ve öneriler:**
 - 8 GB RAM bu iş için sınırda. Ölçüm sırasında sohbet sunucusu kapalı olsa bile boş bellek
   ~400 MB'a iniyor. Ölçümleri bölerek (25+25 soru) çalıştırmak ya da ölçüm sırasında Ollama'nın
