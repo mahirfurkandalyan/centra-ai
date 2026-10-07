@@ -7,6 +7,17 @@ import numpy as np
 from . import config
 
 
+class OllamaError(RuntimeError):
+    pass
+
+
+def _check(r: httpx.Response) -> None:
+    """Ollama'nın hata mesajını da göster (ör. model bulunamadı)."""
+    if r.is_error:
+        r.read()
+        raise OllamaError(f"Ollama {r.status_code}: {r.text[:300]}")
+
+
 def embed(texts: list[str]) -> np.ndarray:
     """Metinleri normalize edilmiş vektörlere çevirir (satır başına bir metin)."""
     r = httpx.post(
@@ -14,7 +25,7 @@ def embed(texts: list[str]) -> np.ndarray:
         json={"model": config.EMBED_MODEL, "input": texts, "keep_alive": config.KEEP_ALIVE},
         timeout=600,
     )
-    r.raise_for_status()
+    _check(r)
     vecs = np.asarray(r.json()["embeddings"], dtype=np.float32)
     return vecs / np.linalg.norm(vecs, axis=1, keepdims=True).clip(min=1e-9)
 
@@ -29,7 +40,7 @@ def chat_stream(messages: list[dict]) -> Iterator[str]:
     }
     timeout = httpx.Timeout(None, connect=10)
     with httpx.stream("POST", f"{config.OLLAMA_URL}/api/chat", json=payload, timeout=timeout) as r:
-        r.raise_for_status()
+        _check(r)
         for line in r.iter_lines():
             if not line:
                 continue

@@ -11,7 +11,10 @@ STATIC_DIR = BASE_DIR / "static"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "qwen3:4b-instruct")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "bge-m3")
-KEEP_ALIVE = os.getenv("KEEP_ALIVE", "-1")  # modeller bellekte açık kalsın
+# Modeller bellekte açık kalsın. Ollama sayıyı saniye, metni süre ("10m") olarak okur;
+# "-1" gibi birimsiz bir metni 400 hatasıyla reddeder, bu yüzden sayıya çevrilir.
+_keep_alive = os.getenv("KEEP_ALIVE", "-1")
+KEEP_ALIVE: int | str = int(_keep_alive) if _keep_alive.lstrip("-").isdigit() else _keep_alive
 NUM_CTX = int(os.getenv("NUM_CTX", "4096"))
 
 # Arama eşikleri (cosine benzerliği, 0-1)
