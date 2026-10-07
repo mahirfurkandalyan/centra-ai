@@ -38,6 +38,8 @@ def chat_stream(messages: list[dict]) -> Iterator[str]:
         "keep_alive": config.KEEP_ALIVE,
         "options": {"temperature": 0.2, "num_ctx": config.NUM_CTX},
     }
+    if config.CHAT_NUM_GPU is not None:
+        payload["options"]["num_gpu"] = config.CHAT_NUM_GPU
     timeout = httpx.Timeout(None, connect=10)
     with httpx.stream("POST", f"{config.OLLAMA_URL}/api/chat", json=payload, timeout=timeout) as r:
         _check(r)

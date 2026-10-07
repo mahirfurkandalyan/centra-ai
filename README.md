@@ -72,6 +72,7 @@ Ardından sunucuyu durdurup (Ctrl+C) yeniden başlatın.
 | `DIRECT_THRESHOLD` | `0.82` | Doğrudan SSS cevabı eşiği |
 | `RAG_THRESHOLD` | `0.60` | LLM'e bağlam verme eşiği |
 | `RAG_TOP_K` | `2` | LLM'e verilecek SSS sayısı |
+| `CHAT_NUM_GPU` | `0` | Sohbet modelinin GPU katman sayısı. `0` = yalnızca CPU (küçük GPU'da modellerin birbirini bellekten atmasını önler). Güçlü GPU'lu sunucuda boş bırakın: `$env:CHAT_NUM_GPU = ""` |
 | `ADMIN_TOKEN` | (boş) | Ayarlanırsa admin uçları bu anahtarı ister. Sunucu dışarı açılmadan önce mutlaka ayarlayın. |
 | `CENTRA_DATA_DIR` | `./data` | Veritabanı klasörü |
 

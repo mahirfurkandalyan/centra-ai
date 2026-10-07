@@ -16,6 +16,12 @@ EMBED_MODEL = os.getenv("EMBED_MODEL", "bge-m3")
 _keep_alive = os.getenv("KEEP_ALIVE", "-1")
 KEEP_ALIVE: int | str = int(_keep_alive) if _keep_alive.lstrip("-").isdigit() else _keep_alive
 NUM_CTX = int(os.getenv("NUM_CTX", "4096"))
+# Sohbet modelinin GPU'ya alınacak katman sayısı. 0 = yalnızca CPU.
+# Küçük GPU'larda (ör. MX150, 2 GB) iki model aynı belleğe sığmayıp sürekli birbirini
+# bellekten atıyor; arama modeli GPU'da, sohbet modeli CPU'da kalınca bu bekleme bitiyor.
+# Boş bırakılırsa karar Ollama'ya kalır (güçlü GPU'lu sunucuda boş bırakın).
+_chat_num_gpu = os.getenv("CHAT_NUM_GPU", "0")
+CHAT_NUM_GPU: int | None = int(_chat_num_gpu) if _chat_num_gpu.strip() else None
 
 # Arama eşikleri (cosine benzerliği, 0-1)
 DIRECT_THRESHOLD = float(os.getenv("DIRECT_THRESHOLD", "0.82"))  # üstü: SSS cevabı aynen döner
