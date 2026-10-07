@@ -39,12 +39,14 @@ def _build_context(hits: list[tuple[dict, float]]) -> str:
     )
 
 
-def answer_stream(question: str) -> Iterator[dict]:
-    """Olay akışı üretir: meta -> token... -> done."""
+def answer_stream(question: str, exclude_ids: set[int] | None = None, log: bool = True) -> Iterator[dict]:
+    """Olay akışı üretir: meta -> token... -> done.
+
+    exclude_ids ve log=False değerlendirme (scripts/run_eval.py) içindir."""
     started = time.perf_counter()
     question = question.strip()
 
-    hits = store.search(ollama_client.embed([question])[0], config.RAG_TOP_K)
+    hits = store.search(ollama_client.embed([question])[0], config.RAG_TOP_K, exclude_ids)
     search_ms = int((time.perf_counter() - started) * 1000)
     first_token_ms = None
     best_faq, best_score = hits[0] if hits else (None, 0.0)
@@ -85,8 +87,9 @@ def answer_stream(question: str) -> Iterator[dict]:
             yield {"type": "token", "text": text}
 
     latency_ms = int((time.perf_counter() - started) * 1000)
-    store.log_chat(
-        question, "".join(parts), mode, best_score if best_faq else None,
-        best_faq["id"] if best_faq else None, latency_ms,
-    )
+    if log:
+        store.log_chat(
+            question, "".join(parts), mode, best_score if best_faq else None,
+            best_faq["id"] if best_faq else None, latency_ms,
+        )
     yield {"type": "done", "latency_ms": latency_ms, "search_ms": search_ms, "first_token_ms": first_token_ms}

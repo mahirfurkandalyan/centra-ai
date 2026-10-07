@@ -152,11 +152,17 @@ def _load_index() -> tuple[np.ndarray, list[int]]:
         return _index[1], _index[2]
 
 
-def search(query_vec: np.ndarray, k: int) -> list[tuple[dict, float]]:
+def search(query_vec: np.ndarray, k: int, exclude_ids: set[int] | None = None) -> list[tuple[dict, float]]:
+    """exclude_ids: değerlendirmede test sorusunun kendi kaydını gizlemek için (leave-one-out)."""
     mat, ids = _load_index()
     if not ids:
         return []
     scores = mat @ query_vec
+    if exclude_ids:
+        scores = scores.copy()
+        for i, faq_id in enumerate(ids):
+            if faq_id in exclude_ids:
+                scores[i] = -np.inf
     top = np.argsort(-scores)[:k]
     with connect() as conn:
         results = []
