@@ -11,7 +11,7 @@ import json
 import sys
 import time
 
-from app import config, rag
+from app import config, gms_reporter, rag
 
 EVAL_DIR = config.DATA_DIR / "eval"
 
@@ -25,6 +25,14 @@ def main() -> None:
     items = json.loads((EVAL_DIR / "eval_set.json").read_text(encoding="utf-8"))
     out_dir = EVAL_DIR / "runs" / args.label
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Turun başlangıç/bitiş zamanı: GMS tur özeti bunları istiyor (docs/GMS_GONDERICI.md).
+    # Soru döngüsüne dokunmamak için yalnızca başta ve sonda bir kez yazılır.
+    # Not: döngü içindeki "meta" soru başına olay verisi; tur düzeyi ayrı adla tutulur.
+    meta_path = out_dir / "meta.json"
+    run_meta = {"label": args.label, "target": len(items),
+                "started_at": gms_reporter.utc_now(), "finished_at": None}
+    meta_path.write_text(json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
     results = []
     started = time.perf_counter()
@@ -58,6 +66,8 @@ def main() -> None:
         print(f"[{len(results)}/{len(items)}] {meta.get('mode')} {done.get('latency_ms', 0) / 1000:.1f} sn  "
               f"(geçen {(time.perf_counter() - started) / 60:.1f} dk)", flush=True)
 
+    run_meta["finished_at"] = gms_reporter.utc_now()
+    meta_path.write_text(json.dumps(run_meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Bitti -> {out_dir / 'results.json'}")
 
 

@@ -39,18 +39,31 @@ Belirsizlikte makul kararı kendin ver ve rapora yaz. Akış:
 2. Sohbet sunucusu açıksa ölçümü bozar; `run.ps1` süreci varsa durdur, bitince yeniden başlat.
 3. `data/eval/eval_set.json` yoksa `python -m scripts.make_eval_set`. Seti asla yeniden üretme
    (turlar karşılaştırılamaz hâle gelir).
-4. **Başlangıç ölçümü** (`tur-NN-baslangic`): mevcut kodu ölç ve puanla.
-5. **Tur döngüsü:** en zayıf alanı seç (puanı düşük kategoriler, halüsinasyon, boş/kesik cevap,
+4. **Oturumu GMS'e aç:** `python -m scripts.gms_report session-start --feedback "<kullanıcının isteği>"`
+   ve ölçüm boyunca arka planda `python -m scripts.gms_report watch`. Ayrıntı: `docs/GMS_GONDERICI.md`.
+5. **Başlangıç ölçümü** (`tur-NN-baslangic`): mevcut kodu ölç ve puanla.
+   Ölçümden önce `gms_report phase measure --round 1 --label <tur>`, puanlamada `phase score`.
+   Puanlama bitince `gms_report round-summary <tur> --decision baseline --note "..."`.
+6. **Tur döngüsü:** en zayıf alanı seç (puanı düşük kategoriler, halüsinasyon, boş/kesik cevap,
    yavaşlık, kullanıcının geri bildirimi) → tek bir değişiklik yap → ölç → puanla → karar:
+   - Her aşamada aşamayı bildir: `gms_report phase improve|measure|score --round N --label <tur>`.
    - Ortalama puan **≥3 artıyorsa**, ya da puan düşmeden halüsinasyon/boş-kesik sayısı veya süre
      belirgin azalıyorsa → **tut**, commit et (mesajda öncesi/sonrası rakamlar).
    - Aksi halde → **geri al** (`git checkout -- .`), denemeyi rapora "işe yaramadı" diye yaz.
+   - Karardan sonra turu bildir: `gms_report round-summary <tur> --decision kept|reverted --note "..."`
+     (tur başına bir kez; 409 gelirse üzerine yazmaya çalışma, logla ve rapora yaz).
    - Bir turda sadece bir şeyi değiştir; yoksa neyin işe yaradığı anlaşılmaz.
-6. **Durma:** art arda 3 tur "tutulmadı" ise, ya da 12 tur dolduysa, ya da kota uyarısı geldiyse dur.
-7. `RAPOR.md`'nin **en üstüne** yeni giriş ekle (şablon aşağıda), commit et, push et.
-8. Sohbet sunucusunu yeniden başlat (kullanıcı yeni hâli deneyebilsin).
-9. Kullanıcıya **bildirim gönder** (PushNotification aracı varsa onunla, yoksa son mesajla):
-   "Geliştirme bitti: ort. puan X → Y. Rapor hazır."
+7. **Durma:** art arda 3 tur "tutulmadı" ise, ya da 12 tur dolduysa, ya da kota uyarısı geldiyse dur.
+8. **Oturumu GMS'te kapat:** `python -m scripts.gms_report session-end --stop-reason plateau|roundLimit|quota|error|manual`
+   ve `watch` sürecini durdur.
+9. `RAPOR.md`'nin **en üstüne** yeni giriş ekle (şablon aşağıda), commit et, push et.
+   Girişe "GMS'e gönderim: başarılı / şu hata" notunu da düş.
+10. Sohbet sunucusunu yeniden başlat (kullanıcı yeni hâli deneyebilsin).
+11. Kullanıcıya **bildirim gönder** (PushNotification aracı varsa onunla, yoksa son mesajla):
+    "Geliştirme bitti: ort. puan X → Y. Rapor hazır."
+
+GMS'e ulaşılamaması **hiçbir zaman** ölçümü ya da geliştirmeyi durdurmaz: `gms_report` hatayı
+`data/eval/gms.log`'a yazar ve 0 ile çıkar. Akışı GMS yüzünden bekletme.
 
 Puanlamayı **Agent aracıyla alt-göreve** yaptır (`model: sonnet` yeterli; 50 soruyu 2 alt-göreve
 böl), `evals/PUANLAMA.md`'nin tamamını talimata koy. Geliştirmeyi kendin yap.

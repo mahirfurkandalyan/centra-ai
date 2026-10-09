@@ -2,6 +2,39 @@
 
 En yeni giriş en üstte.
 
+## 2026-10-09 — GMS gönderici uygulandı (geliştirme oturumu değil)
+
+`docs/GMS_GONDERICI.md` talimatı uygulandı: `app/gms_reporter.py` (yapılandırma, gönderim kapısı,
+TLS, maskeleme, karar mantığı) ve `python -m scripts.gms_report` CLI'si
+(`config` / `session-start` / `phase` / `round-summary` / `watch` / `session-end`, hepsinde `--dry-run`).
+Metrikler `scripts.eval_summary.summarize`'dan geliyor; o fonksiyon tur özeti için genişletildi
+(fallback sayısı, mod dağılımı, ortalama süre, ilk kelime süresi, grup puanları). Geliştirme akışı
+(CLAUDE.md) ve README güncellendi.
+
+**GMS'e gönderim: başarısız — uçlar sunucuda yok (404).** Teşhis:
+- GMS sunucusu ayakta (`GET /` → 200) ve **TLS doğrulaması sağlanan kökle çalışıyor** (ağ/sertifika
+  hatası yok, gerçek HTTP yanıtı geliyor).
+- Üç `centra-ai` ucu da **404**: `POST /api/centra-ai/telemetry`,
+  `POST /api/centra-ai/runs/{runId}/rounds`, `PUT /api/centra-ai/runs/{runId}`.
+- Aynı sunucuda QA hattının ucu **var**: `POST /api/chatbot-test/telemetry` → 401
+  ("Bildirici kimliği doğrulanamadı", çünkü o uca ait kimlik gönderilmedi).
+- Yani kimlik/sertifika/ağ tarafı değil, **`centra-ai` rotaları bu sunucuya dağıtılmamış** ya da
+  yolları sözleşmedekinden farklı. Talimatta "GMS tarafı yayında ve doğrulandı" yazıyor; şu an öyle değil.
+
+404 ayrı bir karar olarak işleniyor (`halt-missing-route`): yeniden denemek dağıtım yapılmadan
+düzelmeyeceği için gönderim durur, `watch` 20 saniyede bir boşa 404 üretmez. Hata
+`data/eval/gms.log`'a yazılır ve komutlar 0 ile çıkar — GMS ölçümü ya da geliştirmeyi durdurmaz.
+
+Yerel olarak doğrulananlar: üç gövde `--dry-run` ile sözleşmeye uygun üretiliyor; GMS'in listelediği
+yanıtların hepsi doğru karara bağlanıyor (aynı gövde → ok, 409 → üzerine yazma, eski sequence →
+tabanı yükselt, 400 → körlemesine tekrar yok, 401 → 30 dk bekleme, 5xx/429/ağ → üstel geri çekilme);
+gönderim kapısı `http` ve eksik kimlikte hiç istek yapmıyor; giz ne çıktıya ne loga ne durum
+dosyasına giriyor.
+
+**Senden beklenen:** GMS tarafında `centra-ai` rotaları dağıtılınca haber ver; `gms_report config` ve
+bir `watch --once` ile doğrulayıp ekranda göründüğünü söylerim. Yollar sözleşmeden farklıysa
+doğrusunu yaz, tek satır ayarla.
+
 ## 2026-10-07 20:02 — Geliştirme oturumu (bellek yetersizliğinden yarıda kesildi)
 
 **Sonuç:** ort. puan 67.0 (ilk kez ölçüldü), başarı %66.0, halüsinasyon 7, model modu ort. 62.0 sn.
